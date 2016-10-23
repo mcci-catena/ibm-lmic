@@ -11,6 +11,7 @@ CC  = ${IAR}/bin/iccarm
 AS  = ${IAR}/bin/iasmarm
 LN  = ${IAR}/bin/ilinkarm
 HEX = ${IAR}/bin/ielftool --ihex
+BIN = ${IAR}/bin/ielftool --bin
 
 CCOPTS  = --cpu=Cortex-M3 --endian=little --diag_suppress Pa050,Pa089,Pe066
 ASOPTS  = --cpu Cortex-M3
@@ -25,6 +26,7 @@ CC  = ${KEIL}/ARM/ARMCC/bin/armcc.exe
 AS  = ${KEIL}/ARM/ARMCC/bin/armasm.exe
 LN  = ${KEIL}/ARM/ARMCC/bin/armlink.exe
 HEX = ${KEIL}/ARM/ARMCC/bin/fromelf.exe --i32
+BIN = ${KEIL}/ARM/ARMCC/bin/fromelf.exe --bin
 
 CCOPTS  = --cpu=Cortex-M3 -c --c99 -D__MICROLIB --apcs=interwork --split_sections
 ASOPTS  = --cpu Cortex-M3 --pd "__MICROLIB SETA 1"
@@ -34,11 +36,15 @@ endif
 
 # GNU TOOLCHAIN
 ifeq (${TOOLCHAIN}, gnu)
-GNU = C:/Software/gcc-arm-none-eabi
+GNU = /opt/arm-gnu-toolchain-4.9.3.475/arm-none-eabi
 CC  = ${GNU}/bin/arm-none-eabi-gcc
 AS  = ${GNU}/bin/arm-none-eabi-as
 LN  = ${GNU}/bin/arm-none-eabi-gcc
 HEX = ${GNU}/bin/arm-none-eabi-objcopy -O ihex
+BIN = ${GNU}/bin/arm-none-eabi-objcopy -O binary
+
+# OpenOCD
+OPENOCD := /opt/openocd-0.9.0/bin/openocd
 
 CMSIS_INC = ../../stm32/CMSIS/Include
 define CMSIS_MSG
@@ -75,6 +81,7 @@ LMICCFG += -DSTM32L1XX_MD -DCFG_DEBUG -DCFG_eu868 -DCFG_wimod_board -DCFG_sx1272
 
 LMICDIR  = ../../lmic
 HALDIR   = ../../stm32
+TOOLSDIR   = ../../tools
 BUILDDIR = build
 
 # RULES
@@ -95,10 +102,16 @@ ${BUILDDIR}/%.out: ${OBJS}
 ${BUILDDIR}/%.hex: ${BUILDDIR}/%.out
 	${HEX} $< ${HEXOPTS} $@
 
-all: ${BUILDDIR}/$(notdir ${CURDIR}).hex
+${BUILDDIR}/%.bin: ${BUILDDIR}/%.out
+	${BIN} $< ${HEXOPTS} $@
+
+all: ${BUILDDIR}/$(notdir ${CURDIR}).bin ${BUILDDIR}/$(notdir ${CURDIR}).hex
 
 clean:
 	rm -rf ${BUILDDIR} Debug RTE settings *.dep *.bak *.sfr *.map *.uvguix.*
+
+load: ${BUILDDIR}/$(notdir ${CURDIR}).bin
+	$(OPENOCD) -f $(TOOLSDIR)/openocd/wimod.cfg  -f $(TOOLSDIR)/openocd/flash.cfg -c "flash_binary $<"
 
 ${BUILDDIR}:
 	mkdir $@
