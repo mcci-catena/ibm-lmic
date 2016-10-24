@@ -1425,7 +1425,11 @@ static bit_t processJoinAccept (void) {
         LMIC.datarate = lowerDR(LMIC.datarate, LMIC.rejoinCnt);
     }
     LMIC.opmode &= ~(OP_JOINING|OP_TRACK|OP_REJOIN|OP_TXRXPEND|OP_PINGINI) | OP_NEXTCHNL;
+    LMIC.txCnt = 0;
     stateJustJoined();
+    LMIC.dn2Dr = LMIC.frame[OFF_JA_DLSET] & 0x0F;
+    LMIC.rxDelay = LMIC.frame[OFF_JA_RXDLY];
+    if (LMIC.rxDelay == 0) LMIC.rxDelay = 1;   
     reportEvent(EV_JOINED);
     return 1;
 }
