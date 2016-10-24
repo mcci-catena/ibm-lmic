@@ -559,16 +559,17 @@ static void initDefaultChannels (bit_t join) {
     os_clearMem(&LMIC.channelDrMap, sizeof(LMIC.channelDrMap));
     os_clearMem(&LMIC.bands, sizeof(LMIC.bands));
 
-    LMIC.channelMap = 0x3F;
-    u1_t su = join ? 0 : 6;
-    for( u1_t fu=0; fu<6; fu++,su++ ) {
+    LMIC.channelMap = (1 << NUM_DEFAULT_CHANNELS) - 1;
+    u1_t su = join ? 0 : NUM_DEFAULT_CHANNELS;
+    for( u1_t fu=0; fu<NUM_DEFAULT_CHANNELS; fu++,su++ ) {
         LMIC.channelFreq[fu]  = iniChannelFreq[su];
         LMIC.channelDrMap[fu] = DR_RANGE_MAP(DR_SF12,DR_SF7);
     }
-    if( !join ) {
-        LMIC.channelDrMap[5] = DR_RANGE_MAP(DR_SF12,DR_SF7);
-        LMIC.channelDrMap[1] = DR_RANGE_MAP(DR_SF12,DR_FSK);
-    }
+// IBM LMIC had:
+//    if( !join ) {
+//        LMIC.channelDrMap[5] = DR_RANGE_MAP(DR_SF12,DR_SF7);
+//        LMIC.channelDrMap[1] = DR_RANGE_MAP(DR_SF12,DR_FSK);
+//    }
 
     LMIC.bands[BAND_MILLI].txcap    = 1000;  // 0.1%
     LMIC.bands[BAND_MILLI].txpow    = 14;
@@ -578,7 +579,7 @@ static void initDefaultChannels (bit_t join) {
     LMIC.bands[BAND_CENTI].lastchnl = os_getRndU1() % MAX_CHANNELS;
     LMIC.bands[BAND_DECI ].txcap    = 10;    // 10%
     LMIC.bands[BAND_DECI ].txpow    = 27;
-    LMIC.bands[BAND_CENTI].lastchnl = os_getRndU1() % MAX_CHANNELS;
+    LMIC.bands[BAND_DECI ].lastchnl = os_getRndU1() % MAX_CHANNELS;
     LMIC.bands[BAND_MILLI].avail = 
     LMIC.bands[BAND_CENTI].avail =
     LMIC.bands[BAND_DECI ].avail = os_getTime();
@@ -696,7 +697,7 @@ static void initJoinLoop (void) {
 #if CFG_TxContinuousMode
   LMIC.txChnl = 0;
 #else
-    LMIC.txChnl = os_getRndU1() % 6;
+    LMIC.txChnl = os_getRndU1() % NUM_DEFAULT_CHANNELS;
 #endif
     LMIC.adrTxPow = 14;
     setDrJoin(DRCHG_SET, DR_SF7);
@@ -711,7 +712,7 @@ static ostime_t nextJoinState (void) {
 
     // Try 869.x and then 864.x with same DR
     // If both fail try next lower datarate
-    if( ++LMIC.txChnl == 6 )
+    if( ++LMIC.txChnl == NUM_DEFAULT_CHANNELS )
         LMIC.txChnl = 0;
     if( (++LMIC.txCnt & 1) == 0 ) {
         // Lower DR every 2nd try (having tried 868.x and 864.x with the same DR)
@@ -1425,7 +1426,11 @@ static bit_t processJoinAccept (void) {
         LMIC.datarate = lowerDR(LMIC.datarate, LMIC.rejoinCnt);
     }
     LMIC.opmode &= ~(OP_JOINING|OP_TRACK|OP_REJOIN|OP_TXRXPEND|OP_PINGINI) | OP_NEXTCHNL;
+    LMIC.txCnt = 0;
     stateJustJoined();
+    LMIC.dn2Dr = LMIC.frame[OFF_JA_DLSET] & 0x0F;
+    LMIC.rxDelay = LMIC.frame[OFF_JA_RXDLY];
+    if (LMIC.rxDelay == 0) LMIC.rxDelay = 1;   
     reportEvent(EV_JOINED);
     return 1;
 }
@@ -1490,7 +1495,7 @@ static void setupRx2DnData (xref2osjob_t osjob) {
 
 static void processRx1DnData (xref2osjob_t osjob) {
     if( LMIC.dataLen == 0 || !processDnData() )
-        schedRx2(DELAY_DNW2_osticks, FUNC_ADDR(setupRx2DnData));
+        schedRx2(sec2osticks(LMIC.rxDelay + (int)DELAY_EXTDNW2), FUNC_ADDR(setupRx2DnData));
 }
 
 
@@ -1500,7 +1505,7 @@ static void setupRx1DnData (xref2osjob_t osjob) {
 
 
 static void updataDone (xref2osjob_t osjob) {
-    txDone(DELAY_DNW1_osticks, FUNC_ADDR(setupRx1DnData));
+    txDone(sec2osticks(LMIC.rxDelay), FUNC_ADDR(setupRx1DnData));
 }
 
 // ======================================== 
@@ -1532,8 +1537,8 @@ static void buildDataFrame (void) {
     }
     if( LMIC.devsAns ) {  // answer to device status
         LMIC.frame[end+0] = MCMD_DEVS_ANS;
-        LMIC.frame[end+1] = LMIC.margin;
-        LMIC.frame[end+2] = os_getBattLevel();
+        LMIC.frame[end+1] = os_getBattLevel();
+        LMIC.frame[end+2] = LMIC.margin;
         end += 3;
         LMIC.devsAns = 0;
     }
@@ -2103,6 +2108,7 @@ void LMIC_reset (void) {
     LMIC.adrEnabled   =  FCT_ADREN;
     LMIC.dn2Dr        =  DR_DNW2;   // we need this for 2nd DN window of join accept
     LMIC.dn2Freq      =  FREQ_DNW2; // ditto
+    LMIC.rxDelay      =  DELAY_DNW1;
     LMIC.ping.freq    =  FREQ_PING; // defaults for ping
     LMIC.ping.dr      =  DR_PING;   // ditto
     LMIC.ping.intvExp =  0xFF;

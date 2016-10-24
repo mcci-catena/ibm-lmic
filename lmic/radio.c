@@ -769,7 +769,7 @@ void radio_irq_handler (u1_t dio) {
     u1_t c = readReg(LORARegModemConfig2);
     opmode(OPMODE_TX);
     return;
-#endif
+#else /* ! CFG_TxContinuousMode */
     ostime_t now = os_getTime();
     if( (readReg(RegOpMode) & OPMODE_LORA) != 0) { // LORA modem
         u1_t flags = readReg(LORARegIrqFlags);
@@ -827,6 +827,7 @@ void radio_irq_handler (u1_t dio) {
     opmode(OPMODE_SLEEP);
     // run os job (use preset func ptr)
     os_setCallback(&LMIC.osjob, LMIC.osjob.func);
+#endif /* ! CFG_TxContinuousMode */
 }
 
 void os_radio (u1_t mode) {
