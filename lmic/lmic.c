@@ -1494,7 +1494,7 @@ static void setupRx2DnData (xref2osjob_t osjob) {
 
 static void processRx1DnData (xref2osjob_t osjob) {
     if( LMIC.dataLen == 0 || !processDnData() )
-        schedRx2(DELAY_DNW2_osticks, FUNC_ADDR(setupRx2DnData));
+        schedRx2(sec2osticks(LMIC.rxDelay + (int)DELAY_EXTDNW2), FUNC_ADDR(setupRx2DnData));
 }
 
 
@@ -1504,7 +1504,7 @@ static void setupRx1DnData (xref2osjob_t osjob) {
 
 
 static void updataDone (xref2osjob_t osjob) {
-    txDone(DELAY_DNW1_osticks, FUNC_ADDR(setupRx1DnData));
+    txDone(sec2osticks(LMIC.rxDelay), FUNC_ADDR(setupRx1DnData));
 }
 
 // ======================================== 
