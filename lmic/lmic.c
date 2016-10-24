@@ -559,16 +559,17 @@ static void initDefaultChannels (bit_t join) {
     os_clearMem(&LMIC.channelDrMap, sizeof(LMIC.channelDrMap));
     os_clearMem(&LMIC.bands, sizeof(LMIC.bands));
 
-    LMIC.channelMap = 0x3F;
-    u1_t su = join ? 0 : 6;
-    for( u1_t fu=0; fu<6; fu++,su++ ) {
+    LMIC.channelMap = (1 << NUM_DEFAULT_CHANNELS) - 1;
+    u1_t su = join ? 0 : NUM_DEFAULT_CHANNELS;
+    for( u1_t fu=0; fu<NUM_DEFAULT_CHANNELS; fu++,su++ ) {
         LMIC.channelFreq[fu]  = iniChannelFreq[su];
         LMIC.channelDrMap[fu] = DR_RANGE_MAP(DR_SF12,DR_SF7);
     }
-    if( !join ) {
-        LMIC.channelDrMap[5] = DR_RANGE_MAP(DR_SF12,DR_SF7);
-        LMIC.channelDrMap[1] = DR_RANGE_MAP(DR_SF12,DR_FSK);
-    }
+// IBM LMIC had:
+//    if( !join ) {
+//        LMIC.channelDrMap[5] = DR_RANGE_MAP(DR_SF12,DR_SF7);
+//        LMIC.channelDrMap[1] = DR_RANGE_MAP(DR_SF12,DR_FSK);
+//    }
 
     LMIC.bands[BAND_MILLI].txcap    = 1000;  // 0.1%
     LMIC.bands[BAND_MILLI].txpow    = 14;
@@ -696,7 +697,7 @@ static void initJoinLoop (void) {
 #if CFG_TxContinuousMode
   LMIC.txChnl = 0;
 #else
-    LMIC.txChnl = os_getRndU1() % 6;
+    LMIC.txChnl = os_getRndU1() % NUM_DEFAULT_CHANNELS;
 #endif
     LMIC.adrTxPow = 14;
     setDrJoin(DRCHG_SET, DR_SF7);
@@ -711,7 +712,7 @@ static ostime_t nextJoinState (void) {
 
     // Try 869.x and then 864.x with same DR
     // If both fail try next lower datarate
-    if( ++LMIC.txChnl == 6 )
+    if( ++LMIC.txChnl == NUM_DEFAULT_CHANNELS )
         LMIC.txChnl = 0;
     if( (++LMIC.txCnt & 1) == 0 ) {
         // Lower DR every 2nd try (having tried 868.x and 864.x with the same DR)
