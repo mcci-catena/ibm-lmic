@@ -133,7 +133,11 @@
 // #define RegAgcThresh3                              0x46 // common
 // #define RegPllHop                                  0x4B // common
 // #define RegTcxo                                    0x58 // common
-#define RegPaDac                                   0x5A // common
+#ifdef CFG_sx1276_radio
+    #define RegPaDac                                   0x4D // common
+#else
+    #define RegPaDac                                   0x5A // common
+#endif
 // #define RegPll                                     0x5C // common
 // #define RegPllLowPn                                0x5E // common
 // #define RegFormerTemp                              0x6C // common
