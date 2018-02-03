@@ -423,13 +423,13 @@ static void configPower () {
 #ifdef CFG_sx1276_radio
     // no boost used for now
     s1_t pw = (s1_t)LMIC.txpow;
-    if(pw >= 17) {
+    if(pw > 15) {
         pw = 15;
     } else if(pw < 2) {
         pw = 2;
     }
     // check board type for BOOST pin
-    writeReg(RegPaConfig, (u1_t)(0x80|(pw&0xf)));
+    writeReg(RegPaConfig, (u1_t)(pw&0xf)); // use RFO pin, no PA_BOOST
     writeReg(RegPaDac, readReg(RegPaDac)|0x4);
 
 #elif CFG_sx1272_radio
